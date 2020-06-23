@@ -34,11 +34,29 @@ class CustomProcess(psutil.Process):
             cores = len(super().cpu_affinity(*args, **kwargs))
         except psutil.AccessDenied:
             cores = 0
+        return cores
 
     def try_nice(self, *args, **kwargs):
         try:
             nice = int(super().nice(*args, **kwargs))
         except psutil.AccessDenied:
             nice = 0
+        return nice
 
-    def try_memory_usage(self, )
+    def try_memory_usage(self, *args, **kwargs):
+        try:
+            # get the memory usage in bytes
+            memory_usage = super().memory_full_info().uss
+        except psutil.AccessDenied:
+            memory_usage = 0
+        return memory_usage
+
+    def try_iocounters(self, *args, **kwargs):
+        try:
+            io_counters = process.io_counters()
+            read_bytes = io_counters.read_bytes
+            write_bytes = io_counters.write_bytes
+        except psutil.AccessDenied:
+            io_counters = 0
+            read_bytes = 0
+            write_bytes = 0
