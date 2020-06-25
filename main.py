@@ -1,62 +1,56 @@
-import psutil, time
-from datetime import datetime
-import os
+from customprocess import CustomProcess
+import psutil, time, os, argparse
+import pandas as pd
 
-# returns process that most consume memory
-'''def get_processes():
-
-    # ps.process_iter() returns all process running with all their details
-    # here we take the name and memory usage of the top 5 processes that most consume memory
-    processes = [(proc.info['name'], proc.info['memory_percent']) for proc in sorted(ps.process_iter(['name', 'memory_percent']), key=lambda proc:proc.info['memory_percent'])][-5:]
+def get_processes():
+    processes = []
+    for process in psutil.process_iter():
+        with process.oneshot():
+            cp = CustomProcess(process)
+            cp_data = cp.get_data()
+            processes.append(cp_data)
     return processes
 
-for process in get_processes():
-    print(process)
-'''
-for p in ps.process_iter():
-    print(ps.disk_usage('/'))
-    break
+def construct_table(processes, sort_by, ascending):
+    table = pd.DataFrame(processes)
+    table.set_index('pid', inplace=True)
+    table.sort_values(sort_by, inplace=True, ascending=ascending)
+    table['memory_usage'] = table['memory_usage'].apply(get_size)
+    table['write_bytes'] = table['write_bytes'].apply(get_size)
+    table['read_bytes'] = table['read_bytes'].apply(get_size)
+    return table
 
+def get_size(bytes):
+    for i in ['', 'K', 'M', 'G', 'T', 'P']:
+        if bytes < 1024:
+            return f"{bytes:.2f}{i}B"
+        bytes /= 1024
 
-class CustomProcess(psutil.Process):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", dest="sort_by", help="Column to sort by.", default="cpu_usage")
+    ## ADD A COLUMN FILTER
+    parser.add_argument("--ascending", action="store_true", help="sort in ascending order.")
+    parser.add_argument("-n", help="Number of processes to show.", default=25)
+    parser.add_argument("-u", "--update", action="store_true", dest='update', help="keep the program running and updating each second")
 
-    def try_create_time(self, *args, **kwargs):
-        try:
-            create_time = datetime.fromtimestamp(super().create_time(*args, **kwargs))
-        except OSError:
-            create_time = datetime.fromtimestamp(psutil.boot_time())
-        return create_time
+    parse_args = parser.parse_args()
+    sort_by = parse_args.sort_by
+    ascending = parse_args.ascending
+    n = int(parse_args.n)
+    update = parse_args.update
+    
+    if update:
+        while update:
+            processes_list = get_processes()
+            os.system("cls") if "nt" in os.name else os.system("clear")
+            table = construct_table(processes_list, sort_by, ascending)
+            print(table.head(n).to_string())
+            time.sleep(1)
+    else:
+        processes_list = get_processes()
+        table = construct_table(processes_list, sort_by, ascending)
+        print(table.to_string())
 
-    def try_CPU_cores(self, *args, **kwargs):
-        try:
-            cores = len(super().cpu_affinity(*args, **kwargs))
-        except psutil.AccessDenied:
-            cores = 0
-        return cores
-
-    def try_nice(self, *args, **kwargs):
-        try:
-            nice = int(super().nice(*args, **kwargs))
-        except psutil.AccessDenied:
-            nice = 0
-        return nice
-
-    def try_memory_usage(self, *args, **kwargs):
-        try:
-            # get the memory usage in bytes
-            memory_usage = super().memory_full_info().uss
-        except psutil.AccessDenied:
-            memory_usage = 0
-        return memory_usage
-
-    def try_iocounters(self, *args, **kwargs):
-        try:
-            io_counters = process.io_counters()
-            read_bytes = io_counters.read_bytes
-            write_bytes = io_counters.write_bytes
-        except psutil.AccessDenied:
-            io_counters = 0
-            read_bytes = 0
-            write_bytes = 0
+if __name__ == '__main__':
+    main()
