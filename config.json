@@ -1,0 +1,12 @@
+{
+  "verbose_config" : {
+    "columns" : ["name", "cpu_usage", "memory_usage", "read_bytes", "write_bytes", "status", "username"],
+    "sort_by" : "cpu_usage",
+    "ascending" : false,
+    "rows" : 10
+  },
+  "report_config" : {
+    "max_cpu_percent" : 70,
+    "max_memory_percent" : 70
+  }
+}

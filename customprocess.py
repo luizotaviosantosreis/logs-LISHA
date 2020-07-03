@@ -4,95 +4,117 @@ from datetime import datetime
 class CustomProcess():
     def __init__(self, process):
         self.process = process
-        self.pid()
-        self.name()
-        self.create_time()
-        self.cpu_usage()
-        self.status()
-        self.CPU_cores()
-        self.nice()
-        self.memory_usage()
         self.io_counters()
-        self.num_threads()
-        self.username()
 
+    # get process pid
     def pid(self):
         try:
-            self.pid = self.process.pid
+            pid = self.process.pid
         except psutil.AccessDenied:
-            self.pid = -1
+            pid = -1
+        return pid
 
+    # get process name
     def name(self):
         try:
-            self.name = self.process.name()
+            name = self.process.name()
         except psutil.AccessDenied:
-            self.name = 'Access Denied'
+            name = 'Access Denied'
+        return name
 
+    # get process creation time
     def create_time(self):
         try:
-            self.create_time = datetime.fromtimestamp(self.process.create_time())
+            create_time = datetime.fromtimestamp(self.process.create_time())
         except OSError:
-            self.create_time = datetime.fromtimestamp(psutil.boot_time())
+            create_time = datetime.fromtimestamp(psutil.boot_time())
+        return create_time
 
+    # get process cpu usage (percent)
     def cpu_usage(self):
         try:
-            self.cpu_usage = self.process.cpu_percent()
+            cpu_usage = self.process.cpu_percent()/psutil.cpu_count()
         except psutil.AccessDenied:
-            self.cpu_usage = -1
+            cpu_usage = -1
+        return cpu_usage
 
+    # get process status
     def status(self):
         try:
-            self.status = self.process.status()
+            status = self.process.status()
         except psutil.AccessDenied:
-            self.status = 'Access Denied'
+            status = 'Access Denied'
+        return status
 
-    def CPU_cores(self):
-        try:
-            self.cores = len(self.process.cpu_affinity())
-        except psutil.AccessDenied:
-            self.cores = -1
-
+    # get process niceness (priority from -20 to 19, where -20 is the highest, 19 the lowest and 0 the default)
     def nice(self):
         try:
-            self.nice = int(self.process.nice())
+            nice = int(self.process.nice())
         except psutil.AccessDenied:
-            self.nice = 0
+            nice = 0
+        return nice
 
+    # get process memory usage (rss)
     def memory_usage(self):
         try:
-            self.memory_usage = self.process.memory_info().rss
+            memory_usage = self.process.memory_full_info().uss
         except psutil.AccessDenied:
-            self.memory_usage = -1
+            memory_usage = -1
+        return memory_usage
 
+    # get process i/o statistics
     def io_counters(self):
         try:
-            io_counters = self.process.io_counters()
-            self.read_bytes = io_counters.read_bytes
-            self.write_bytes = io_counters.write_bytes
+            self.io_counters = self.process.io_counters()
         except psutil.AccessDenied:
-            self.read_bytes = -1
-            self.write_bytes = -1
+            self.io_counters = False
 
-    def num_threads(self):
-        try:
-            self.n_threads = self.process.num_threads()
-        except psutil.AccessDenied:
-            self.n_threads = -1
+    # get process read bytes
+    def read_bytes(self):
+        if self.io_counters:
+            try:
+                read_bytes = self.io_counters.read_bytes
+            except psutil.AccessDenied:
+                read_bytes = -1
+            return read_bytes
+        return -1
 
+    # get process write bytes
+    def write_bytes(self):
+        if self.io_counters:
+            try:
+                write_bytes = self.io_counters.write_bytes
+            except psutil.AccessDenied:
+                write_bytes = -1
+            return write_bytes
+        return -1
+
+    # get name of the user that owns the process
     def username(self):
         try:
-            self.username = self.process.username()
+            username = self.process.username()
         except psutil.AccessDenied:
-            self.username = 'Access Denied'
+            username = 'Access Denied'
+        return username
 
+    # get the process data specified in args
     def get_data(self, *args):
-        data = {'pid' : self.pid,
-                'name' : self.name,
-                'cpu_usage' : self.cpu_usage,
-                'memory_usage' : self.memory_usage,
-                'read_bytes' : self.read_bytes,
-                'write_bytes' : self.write_bytes,
-                'status' : self.status,
-                'username' : self.username
-                }
+        s_to_f = {'pid' : self.pid,
+                  'name' : self.name,
+                  'cpu_usage' : self.cpu_usage,
+                  'memory_usage' : self.memory_usage,
+                  'read_bytes' : self.read_bytes,
+                  'write_bytes' : self.write_bytes,
+                  'status' : self.status,
+                  'username' : self.username,
+                  'nice' : self.nice,
+                  'create_time' : self.create_time
+                  }
+        data = {}
+        data['pid'] = s_to_f['pid']()
+        for arg in args:
+            try:
+                data[arg] = s_to_f[arg]()
+            except KeyError:
+                raise KeyError(f'invalid column specified: \'{arg}\'') from None
         return data
